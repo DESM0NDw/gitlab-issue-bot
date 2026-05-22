@@ -26,3 +26,28 @@ async def post_comment(project_id: str | int, issue_iid: int, body: str) -> None
             json={"body": body},
             timeout=10,
         )
+
+
+async def fetch_unclassified_issues(project_id: str | int) -> list[dict]:
+    issues = []
+    page = 1
+    async with httpx.AsyncClient() as client:
+        while True:
+            response = await client.get(
+                f"{_project_url(project_id)}/issues",
+                headers=HEADERS,
+                params={
+                    "state": "opened",
+                    "not[labels]": "bot::analysiert",
+                    "per_page": 100,
+                    "page": page,
+                },
+                timeout=15,
+            )
+            response.raise_for_status()
+            batch = response.json()
+            if not batch:
+                break
+            issues.extend(batch)
+            page += 1
+    return issues

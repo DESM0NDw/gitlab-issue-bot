@@ -3,7 +3,7 @@ import hashlib
 import logging
 from fastapi import FastAPI, Request, HTTPException, Header
 from classifier import classify_issue
-from gitlab_client import set_labels, post_comment
+from gitlab_client import set_labels, post_comment, fetch_unclassified_issues
 from config import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -11,7 +11,13 @@ log = logging.getLogger(__name__)
 
 app = FastAPI(title="GitLab Issue Bot")
 
-PRIORITY_LABELS = {"Hoch": "priority::high", "Mittel": "priority::medium", "Niedrig": "priority::low"}
+# ki-ersteinschätzung = vorläufige Einschätzung bei Issue-Erstellung
+# Endgültige Priorität kommt vom Analyzer in der Prioritätsliste
+PRIORITY_LABELS = {
+    "Hoch": "ki-ersteinschätzung::hoch",
+    "Mittel": "ki-ersteinschätzung::mittel",
+    "Niedrig": "ki-ersteinschätzung::niedrig",
+}
 CATEGORY_LABELS = {
     "Bug": "type::bug",
     "Feature": "type::feature",
@@ -82,6 +88,43 @@ async def webhook(request: Request, x_gitlab_token: str | None = Header(None)):
 @app.get("/webhook")
 async def webhook_check():
     return {"status": "ok"}
+
+
+@app.post("/backfill")
+async def backfill(project_id: str):
+    issues = await fetch_unclassified_issues(project_id)
+    if not issues:
+        return {"status": "ok", "message": "Keine Issues ohne Klassifizierung gefunden"}
+
+    processed = 0
+    for issue in issues:
+        try:
+            result = await classify_issue(issue["title"], issue.get("description", ""))
+            category = result.get("category", "Sonstiges")
+            priority = result.get("priority", "Mittel")
+            comment_text = result.get("comment", "")
+
+            labels = ["bot::analysiert"]
+            if label := CATEGORY_LABELS.get(category):
+                labels.append(label)
+            if label := PRIORITY_LABELS.get(priority):
+                labels.append(label)
+
+            await set_labels(project_id, issue["iid"], labels)
+            comment = (
+                f"**KI-Analyse** (nachträglich)\n\n"
+                f"- **Kategorie:** {category}\n"
+                f"- **Priorität (Ersteinschätzung):** {priority}\n\n"
+                f"{comment_text}\n\n"
+                f"---\n*Automatisch generiert von gitlab-issue-bot*"
+            )
+            await post_comment(project_id, issue["iid"], comment)
+            processed += 1
+            log.info(f"Backfill Issue #{issue['iid']}: {category}, {priority}")
+        except Exception as e:
+            log.error(f"Backfill fehlgeschlagen für Issue #{issue['iid']}: {e}")
+
+    return {"status": "ok", "processed": processed}
 
 
 @app.get("/health")
