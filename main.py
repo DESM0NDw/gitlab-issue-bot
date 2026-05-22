@@ -58,7 +58,7 @@ async def webhook(request: Request, x_gitlab_token: str | None = Header(None)):
     priority = result.get("priority", "Mittel")
     comment_text = result.get("comment", "")
 
-    labels = []
+    labels = ["bot::analysiert"]
     if label := CATEGORY_LABELS.get(category):
         labels.append(label)
     if label := PRIORITY_LABELS.get(priority):
@@ -77,6 +77,11 @@ async def webhook(request: Request, x_gitlab_token: str | None = Header(None)):
 
     log.info(f"Issue #{issue_iid} klassifiziert: {category}, {priority}")
     return {"status": "ok", "category": category, "priority": priority}
+
+
+@app.get("/webhook")
+async def webhook_check():
+    return {"status": "ok"}
 
 
 @app.get("/health")
