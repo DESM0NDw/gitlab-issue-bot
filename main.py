@@ -47,6 +47,10 @@ async def webhook(request: Request, x_gitlab_token: str | None = Header(None)):
     if attrs.get("action") != "open":
         return {"status": "ignored"}
 
+    existing_labels = {lbl["title"] for lbl in payload.get("labels", [])}
+    if "bot::analysiert" in existing_labels:
+        return {"status": "ignored"}
+
     project_id = payload["project"]["id"]
     issue_iid = attrs["iid"]
     title = attrs.get("title", "")

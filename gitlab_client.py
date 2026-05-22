@@ -13,7 +13,7 @@ async def set_labels(project_id: str | int, issue_iid: int, labels: list[str]) -
         await client.put(
             f"{_project_url(project_id)}/issues/{issue_iid}",
             headers=HEADERS,
-            json={"add_labels": ",".join(labels)},
+            json={"labels": ",".join(labels)},
             timeout=10,
         )
 
