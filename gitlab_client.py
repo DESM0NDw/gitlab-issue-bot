@@ -38,7 +38,7 @@ async def fetch_unclassified_issues(project_id: str | int) -> list[dict]:
                 headers=HEADERS,
                 params={
                     "state": "opened",
-                    "not[labels]": "bot::analysiert",
+                    "not[labels]": "type::bug,type::feature,type::question,type::documentation,type::other",
                     "per_page": 100,
                     "page": page,
                 },

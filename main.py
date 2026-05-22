@@ -48,7 +48,7 @@ async def webhook(request: Request, x_gitlab_token: str | None = Header(None)):
         return {"status": "ignored"}
 
     existing_labels = {lbl["title"] for lbl in payload.get("labels", [])}
-    if "bot::analysiert" in existing_labels:
+    if any(l.startswith("type::") or l.startswith("bot::") for l in existing_labels):
         return {"status": "ignored"}
 
     project_id = payload["project"]["id"]
@@ -68,7 +68,7 @@ async def webhook(request: Request, x_gitlab_token: str | None = Header(None)):
     priority = result.get("priority", "Mittel")
     comment_text = result.get("comment", "")
 
-    labels = ["bot::analysiert"]
+    labels = []
     if label := CATEGORY_LABELS.get(category):
         labels.append(label)
     if label := PRIORITY_LABELS.get(priority):
@@ -108,7 +108,7 @@ async def backfill(project_id: str):
             priority = result.get("priority", "Mittel")
             comment_text = result.get("comment", "")
 
-            labels = ["bot::analysiert"]
+            labels = []
             if label := CATEGORY_LABELS.get(category):
                 labels.append(label)
             if label := PRIORITY_LABELS.get(priority):
