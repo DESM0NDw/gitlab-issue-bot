@@ -1,0 +1,12 @@
+services:
+  bot:
+    build: .
+    container_name: gitlab-issue-bot
+    env_file: .env
+    networks:
+      - 1panel-network
+    restart: unless-stopped
+
+networks:
+  1panel-network:
+    external: true
